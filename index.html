@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Follow Checker</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-heading: #f0f6fc;
+            --accent-color: #238636;
+            --accent-hover: #2ea043;
+            --danger-color: #da3633;
+            --danger-hover: #f85149;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1, h2, h3 {
+            color: var(--text-heading);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #010409;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-main);
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 100px;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            margin-right: 8px;
+            margin-top: 5px;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background-color: #010409;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--text-heading);
+        }
+
+        .user-list {
+            list-style-type: none;
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .badge-whitelisted {
+            background-color: #388bfd26;
+            color: #58a6ff;
+            border: 1px solid #388bfd4d;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        #log {
+            background-color: #010409;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #7ee787;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🐙 GitHub Follow Checker</h1>
+
+    <!-- Beállítások -->
+    <div class="card">
+        <h2>Konfiguráció</h2>
+        <div class="form-group">
+            <label for="username">GitHub Felhasználónév</label>
+            <input type="text" id="username" placeholder="Pl. oktatobazis">
+        </div>
+        <div class="form-group">
+            <label for="token">Personal Access Token (PAT)</label>
+            <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="form-group">
+            <label for="whitelist">Fehérlista (soronként vagy vesszővel elválasztva)</label>
+            <textarea id="whitelist" placeholder="allure-framework&#10;amigoscode&#10;microsoft"></textarea>
+        </div>
+        <button class="btn" id="fetchBtn" onclick="fetchData()">Adatok Betöltése</button>
+    </div>
+
+    <!-- Statisztika -->
+    <div class="card" id="statsCard" style="display: none;">
+        <h2>Statisztika</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-number" id="statFollowers">0</div>
+                <div>Követő</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statFollowing">0</div>
+                <div>Követett</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statNotFollowingBack">0</div>
+                <div>Nem követ vissza</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number" id="statNotFollowedByUs">0</div>
+                <div>Követ, de nem követed</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Műveletek és Listák -->
+    <div class="card" id="actionsCard" style="display: none;">
+        <h2>Műveletek</h2>
+        <button class="btn btn-danger" onclick="unfollowAll()">Kikövetés (kivéve Fehérlista)</button>
+        <button class="btn" onclick="followAllBack()">Mindenki Visszakövetése</button>
+        
+        <h3 style="margin-top: 25px;">Akik nem követnek vissza</h3>
+        <ul class="user-list" id="notFollowingBackList"></ul>
+
+        <h3 style="margin-top: 25px;">Akik követnek, de te még nem követed őket</h3>
+        <ul class="user-list" id="notFollowedByUsList"></ul>
+    </div>
+
+    <!-- Napló / Konzol -->
+    <div class="card">
+        <h2>Napló</h2>
+        <div id="log">Várakozás az indításra...</div>
+    </div>
+</div>
+
+<script>
+    let followersSet = new Set();
+    let followingSet = new Set();
+    let notFollowingBackArray = [];
+    let notFollowedByUsArray = [];
+    let whitelistArray = [];
+
+    function log(message) {
+        const logDiv = document.getElementById('log');
+        logDiv.textContent += '\n' + message;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function clearLog() {
+        document.getElementById('log').textContent = '';
+    }
+
+    function getWhitelist() {
+        const text = document.getElementById('whitelist').value;
+        return text
+            .split(/[\n,]+/)
+            .map(s => s.trim().replace(/^@/, ''))
+            .filter(s => s.length > 0);
+    }
+
+    async function githubRequest(url, token, options = {}) {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                ...options.headers
+            }
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`API Hiba: ${response.status} - ${err}`);
+        }
+        return response.headers.get('content-type')?.includes('application/json') ? response.json() : null;
+    }
+
+    async function getAllPages(endpoint, token) {
+        let results = [];
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+            const data = await githubRequest(`${endpoint}?per_page=100&page=${page}`, token);
+            if (data.length === 0) {
+                hasMore = false;
+            } else {
+                results = results.concat(data);
+                page++;
+            }
+        }
+        return results;
+    }
+
+    async function fetchData() {
+        clearLog();
+        const username = document.getElementById('username').value.trim();
+        const token = document.getElementById('token').value.trim();
+        whitelistArray = getWhitelist();
+
+        if (!username || !token) {
+            alert('Kérlek add meg a felhasználóneved és a tokent!');
+            return;
+        }
+
+        document.getElementById('fetchBtn').disabled = true;
+        log(`📡 Adatok lekérdezése: ${username}...`);
+
+        try {
+            const followersData = await getAllPages(`https://api.github.com/users/${username}/followers`, token);
+            followersSet = new Set(followersData.map(u => u.login));
+
+            const followingData = await getAllPages(`https://api.github.com/users/${username}/following`, token);
+            followingSet = new Set(followingData.map(u => u.login));
+
+            const followingArray = Array.from(followingSet);
+            notFollowingBackArray = followingArray.filter(u => !followersSet.has(u));
+            notFollowedByUsArray = Array.from(followersSet).filter(u => !followingSet.has(u));
+
+            // Statisztika frissítése
+            document.getElementById('statFollowers').textContent = followersSet.size;
+            document.getElementById('statFollowing').textContent = followingSet.size;
+            document.getElementById('statNotFollowingBack').textContent = notFollowingBackArray.length;
+            document.getElementById('statNotFollowedByUs').textContent = notFollowedByUsArray.length;
+
+            document.getElementById('statsCard').style.display = 'block';
+            document.getElementById('actionsCard').style.display = 'block';
+
+            renderLists();
+            log('✅ Adatok sikeresen betöltve!');
+
+        } catch (err) {
+            log('❌ Hiba történt: ' + err.message);
+        } finally {
+            document.getElementById('fetchBtn').disabled = false;
+        }
+    }
+
+    function renderLists() {
+        const notFollowingListEl = document.getElementById('notFollowingBackList');
+        notFollowingListEl.innerHTML = '';
+
+        if (notFollowingBackArray.length === 0) {
+            notFollowingListEl.innerHTML = '<li class="user-item">Mindenki visszakövet! 🎉</li>';
+        } else {
+            notFollowingBackArray.forEach(user => {
+                const isWhitelisted = whitelistArray.includes(user);
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                li.innerHTML = `
+                    <span>${user} ${isWhitelisted ? '<span class="badge-whitelisted">🛡️ Védett</span>' : ''}</span>
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" ${isWhitelisted ? 'disabled' : ''} onclick="unfollowSingle('${user}')">Kikövetés</button>
+                `;
+                notFollowingListEl.appendChild(li);
+            });
+        }
+
+        const notFollowedListEl = document.getElementById('notFollowedByUsList');
+        notFollowedListEl.innerHTML = '';
+
+        if (notFollowedByUsArray.length === 0) {
+            notFollowedListEl.innerHTML = '<li class="user-item">Minden követődet visszaköveted már! 🤝</li>';
+        } else {
+            notFollowedByUsArray.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                li.innerHTML = `
+                    <span>${user}</span>
+                    <button class="btn" style="padding: 4px 8px; font-size: 12px;" onclick="followSingle('${user}')">Visszakövetés</button>
+                `;
+                notFollowedListEl.appendChild(li);
+            });
+        }
+    }
+
+    async function unfollowSingle(username) {
+        const token = document.getElementById('token').value.trim();
+        log(`Kikövetés: ${username}...`);
+        try {
+            await fetch(`https://api.github.com/user/following/${username}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `token ${token}` }
+            });
+            log(`✅ Sikeresen kikövetve: ${username}`);
+            fetchData();
+        } catch (err) {
+            log(`❌ Hiba ${username} kikövetésekor: ${err.message}`);
+        }
+    }
+
+    async function followSingle(username) {
+        const token = document.getElementById('token').value.trim();
+        log(`Bekövetés: ${username}...`);
+        try {
+            await fetch(`https://api.github.com/user/following/${username}`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `token ${token}`,
+                    'Content-Length': '0'
+                }
+            });
+            log(`✅ Sikeresen bekövetve: ${username}`);
+            fetchData();
+        } catch (err) {
+            log(`❌ Hiba ${username} bekövetésekor: ${err.message}`);
+        }
+    }
+
+    async function unfollowAll() {
+        const token = document.getElementById('token').value.trim();
+        whitelistArray = getWhitelist();
+
+        if (!confirm('Biztosan ki akarod követni az összes nem visszakövető fiókot (kivéve a fehérlistásakat)?')) return;
+
+        log('\n--- Automatikus kikövetés indítása ---');
+        for (const user of notFollowingBackArray) {
+            if (whitelistArray.includes(user)) {
+                log(`[VÉDETT] Kihagyva: ${user}`);
+                continue;
+            }
+
+            log(`Kikövetés: ${user}...`);
+            try {
+                await fetch(`https://api.github.com/user/following/${user}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `token ${token}` }
+                });
+                log(`✅ OK: ${user}`);
+            } catch (err) {
+                log(`❌ HIBA: ${user}`);
+            }
+            await new Promise(r => setTimeout(r, 800));
+        }
+        log('--- Automatikus kikövetés kész! ---');
+        fetchData();
+    }
+
+    async function followAllBack() {
+        const token = document.getElementById('token').value.trim();
+
+        if (!confirm('Biztosan vissza akarod követni az összes téged követő felhasználót?')) return;
+
+        log('\n--- Automatikus visszakövetés indítása ---');
+        for (const user of notFollowedByUsArray) {
+            log(`Bekövetés: ${user}...`);
+            try {
+                await fetch(`https://api.github.com/user/following/${user}`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Authorization': `token ${token}`,
+                        'Content-Length': '0'
+                    }
+                });
+                log(`✅ OK: ${user}`);
+            } catch (err) {
+                log(`❌ HIBA: ${user}`);
+            }
+            await new Promise(r => setTimeout(r, 800));
+        }
+        log('--- Automatikus visszakövetés kész! ---');
+        fetchData();
+    }
+</script>
+
+</body>
+</html>
