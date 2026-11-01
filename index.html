@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -168,64 +168,64 @@
 <div class="container">
     <h1>🐙 GitHub Follow Checker</h1>
 
-    <!-- Beállítások -->
+    <!-- Configuration -->
     <div class="card">
-        <h2>Konfiguráció</h2>
+        <h2>Configuration</h2>
         <div class="form-group">
-            <label for="username">GitHub Felhasználónév</label>
-            <input type="text" id="username" placeholder="Pl. oktatobazis">
+            <label for="username">GitHub Username</label>
+            <input type="text" id="username" placeholder="e.g. octocat" oninput="saveToLocalStorage()">
         </div>
         <div class="form-group">
             <label for="token">Personal Access Token (PAT)</label>
-            <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" oninput="saveToLocalStorage()">
         </div>
         <div class="form-group">
-            <label for="whitelist">Fehérlista (soronként vagy vesszővel elválasztva)</label>
-            <textarea id="whitelist" placeholder="allure-framework&#10;amigoscode&#10;microsoft"></textarea>
+            <label for="whitelist">Whitelist (line separated or comma separated)</label>
+            <textarea id="whitelist" placeholder="allure-framework&#10;amigoscode&#10;microsoft" oninput="saveToLocalStorage()"></textarea>
         </div>
-        <button class="btn" id="fetchBtn" onclick="fetchData()">Adatok Betöltése</button>
+        <button class="btn" id="fetchBtn" onclick="fetchData()">Load Data</button>
     </div>
 
-    <!-- Statisztika -->
+    <!-- Statistics -->
     <div class="card" id="statsCard" style="display: none;">
-        <h2>Statisztika</h2>
+        <h2>Statistics</h2>
         <div class="stats-grid">
             <div class="stat-box">
                 <div class="stat-number" id="statFollowers">0</div>
-                <div>Követő</div>
+                <div>Followers</div>
             </div>
             <div class="stat-box">
                 <div class="stat-number" id="statFollowing">0</div>
-                <div>Követett</div>
+                <div>Following</div>
             </div>
             <div class="stat-box">
                 <div class="stat-number" id="statNotFollowingBack">0</div>
-                <div>Nem követ vissza</div>
+                <div>Not Following Back</div>
             </div>
             <div class="stat-box">
                 <div class="stat-number" id="statNotFollowedByUs">0</div>
-                <div>Követ, de nem követed</div>
+                <div>Follows You (Not Followed Back)</div>
             </div>
         </div>
     </div>
 
-    <!-- Műveletek és Listák -->
+    <!-- Actions and Lists -->
     <div class="card" id="actionsCard" style="display: none;">
-        <h2>Műveletek</h2>
-        <button class="btn btn-danger" onclick="unfollowAll()">Kikövetés (kivéve Fehérlista)</button>
-        <button class="btn" onclick="followAllBack()">Mindenki Visszakövetése</button>
+        <h2>Actions</h2>
+        <button class="btn btn-danger" onclick="unfollowAll()">Unfollow All (Except Whitelist)</button>
+        <button class="btn" onclick="followAllBack()">Follow Back Everyone</button>
         
-        <h3 style="margin-top: 25px;">Akik nem követnek vissza</h3>
+        <h3 style="margin-top: 25px;">Users Not Following You Back</h3>
         <ul class="user-list" id="notFollowingBackList"></ul>
 
-        <h3 style="margin-top: 25px;">Akik követnek, de te még nem követed őket</h3>
+        <h3 style="margin-top: 25px;">Users Following You (Not Followed Back)</h3>
         <ul class="user-list" id="notFollowedByUsList"></ul>
     </div>
 
-    <!-- Napló / Konzol -->
+    <!-- Log Console -->
     <div class="card">
-        <h2>Napló</h2>
-        <div id="log">Várakozás az indításra...</div>
+        <h2>Logs</h2>
+        <div id="log">Awaiting start... (Inputs are automatically saved to localStorage)</div>
     </div>
 </div>
 
@@ -235,6 +235,26 @@
     let notFollowingBackArray = [];
     let notFollowedByUsArray = [];
     let whitelistArray = [];
+
+    // Load saved inputs from localStorage when page loads
+    window.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('gh_username')) {
+            document.getElementById('username').value = localStorage.getItem('gh_username');
+        }
+        if (localStorage.getItem('gh_token')) {
+            document.getElementById('token').value = localStorage.getItem('gh_token');
+        }
+        if (localStorage.getItem('gh_whitelist')) {
+            document.getElementById('whitelist').value = localStorage.getItem('gh_whitelist');
+        }
+    });
+
+    // Save inputs to localStorage on typing
+    function saveToLocalStorage() {
+        localStorage.setItem('gh_username', document.getElementById('username').value);
+        localStorage.setItem('gh_token', document.getElementById('token').value);
+        localStorage.setItem('gh_whitelist', document.getElementById('whitelist').value);
+    }
 
     function log(message) {
         const logDiv = document.getElementById('log');
@@ -266,7 +286,7 @@
 
         if (!response.ok) {
             const err = await response.text();
-            throw new Error(`API Hiba: ${response.status} - ${err}`);
+            throw new Error(`API Error: ${response.status} - ${err}`);
         }
         return response.headers.get('content-type')?.includes('application/json') ? response.json() : null;
     }
@@ -295,12 +315,12 @@
         whitelistArray = getWhitelist();
 
         if (!username || !token) {
-            alert('Kérlek add meg a felhasználóneved és a tokent!');
+            alert('Please provide your GitHub username and Personal Access Token!');
             return;
         }
 
         document.getElementById('fetchBtn').disabled = true;
-        log(`📡 Adatok lekérdezése: ${username}...`);
+        log(`📡 Fetching data for: ${username}...`);
 
         try {
             const followersData = await getAllPages(`https://api.github.com/users/${username}/followers`, token);
@@ -313,7 +333,7 @@
             notFollowingBackArray = followingArray.filter(u => !followersSet.has(u));
             notFollowedByUsArray = Array.from(followersSet).filter(u => !followingSet.has(u));
 
-            // Statisztika frissítése
+            // Update stats
             document.getElementById('statFollowers').textContent = followersSet.size;
             document.getElementById('statFollowing').textContent = followingSet.size;
             document.getElementById('statNotFollowingBack').textContent = notFollowingBackArray.length;
@@ -323,10 +343,10 @@
             document.getElementById('actionsCard').style.display = 'block';
 
             renderLists();
-            log('✅ Adatok sikeresen betöltve!');
+            log('✅ Data successfully loaded!');
 
         } catch (err) {
-            log('❌ Hiba történt: ' + err.message);
+            log('❌ Error occurred: ' + err.message);
         } finally {
             document.getElementById('fetchBtn').disabled = false;
         }
@@ -337,15 +357,15 @@
         notFollowingListEl.innerHTML = '';
 
         if (notFollowingBackArray.length === 0) {
-            notFollowingListEl.innerHTML = '<li class="user-item">Mindenki visszakövet! 🎉</li>';
+            notFollowingListEl.innerHTML = '<li class="user-item">Everyone follows you back! 🎉</li>';
         } else {
             notFollowingBackArray.forEach(user => {
                 const isWhitelisted = whitelistArray.includes(user);
                 const li = document.createElement('li');
                 li.className = 'user-item';
                 li.innerHTML = `
-                    <span>${user} ${isWhitelisted ? '<span class="badge-whitelisted">🛡️ Védett</span>' : ''}</span>
-                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" ${isWhitelisted ? 'disabled' : ''} onclick="unfollowSingle('${user}')">Kikövetés</button>
+                    <span>${user} ${isWhitelisted ? '<span class="badge-whitelisted">🛡️ Protected</span>' : ''}</span>
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" ${isWhitelisted ? 'disabled' : ''} onclick="unfollowSingle('${user}')">Unfollow</button>
                 `;
                 notFollowingListEl.appendChild(li);
             });
@@ -355,14 +375,14 @@
         notFollowedListEl.innerHTML = '';
 
         if (notFollowedByUsArray.length === 0) {
-            notFollowedListEl.innerHTML = '<li class="user-item">Minden követődet visszaköveted már! 🤝</li>';
+            notFollowedListEl.innerHTML = '<li class="user-item">You already follow back all your followers! 🤝</li>';
         } else {
             notFollowedByUsArray.forEach(user => {
                 const li = document.createElement('li');
                 li.className = 'user-item';
                 li.innerHTML = `
                     <span>${user}</span>
-                    <button class="btn" style="padding: 4px 8px; font-size: 12px;" onclick="followSingle('${user}')">Visszakövetés</button>
+                    <button class="btn" style="padding: 4px 8px; font-size: 12px;" onclick="followSingle('${user}')">Follow Back</button>
                 `;
                 notFollowedListEl.appendChild(li);
             });
@@ -371,22 +391,22 @@
 
     async function unfollowSingle(username) {
         const token = document.getElementById('token').value.trim();
-        log(`Kikövetés: ${username}...`);
+        log(`Unfollowing: ${username}...`);
         try {
             await fetch(`https://api.github.com/user/following/${username}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `token ${token}` }
             });
-            log(`✅ Sikeresen kikövetve: ${username}`);
+            log(`✅ Successfully unfollowed: ${username}`);
             fetchData();
         } catch (err) {
-            log(`❌ Hiba ${username} kikövetésekor: ${err.message}`);
+            log(`❌ Error unfollowing ${username}: ${err.message}`);
         }
     }
 
     async function followSingle(username) {
         const token = document.getElementById('token').value.trim();
-        log(`Bekövetés: ${username}...`);
+        log(`Following: ${username}...`);
         try {
             await fetch(`https://api.github.com/user/following/${username}`, {
                 method: 'PUT',
@@ -395,10 +415,10 @@
                     'Content-Length': '0'
                 }
             });
-            log(`✅ Sikeresen bekövetve: ${username}`);
+            log(`✅ Successfully followed: ${username}`);
             fetchData();
         } catch (err) {
-            log(`❌ Hiba ${username} bekövetésekor: ${err.message}`);
+            log(`❌ Error following ${username}: ${err.message}`);
         }
     }
 
@@ -406,16 +426,16 @@
         const token = document.getElementById('token').value.trim();
         whitelistArray = getWhitelist();
 
-        if (!confirm('Biztosan ki akarod követni az összes nem visszakövető fiókot (kivéve a fehérlistásakat)?')) return;
+        if (!confirm('Are you sure you want to unfollow all accounts that do not follow you back (except whitelisted)?')) return;
 
-        log('\n--- Automatikus kikövetés indítása ---');
+        log('\n--- Starting batch unfollow process ---');
         for (const user of notFollowingBackArray) {
             if (whitelistArray.includes(user)) {
-                log(`[VÉDETT] Kihagyva: ${user}`);
+                log(`[PROTECTED] Skipped: ${user}`);
                 continue;
             }
 
-            log(`Kikövetés: ${user}...`);
+            log(`Unfollowing: ${user}...`);
             try {
                 await fetch(`https://api.github.com/user/following/${user}`, {
                     method: 'DELETE',
@@ -423,22 +443,22 @@
                 });
                 log(`✅ OK: ${user}`);
             } catch (err) {
-                log(`❌ HIBA: ${user}`);
+                log(`❌ ERROR: ${user}`);
             }
             await new Promise(r => setTimeout(r, 800));
         }
-        log('--- Automatikus kikövetés kész! ---');
+        log('--- Batch unfollow process finished! ---');
         fetchData();
     }
 
     async function followAllBack() {
         const token = document.getElementById('token').value.trim();
 
-        if (!confirm('Biztosan vissza akarod követni az összes téged követő felhasználót?')) return;
+        if (!confirm('Are you sure you want to follow back all users who follow you?')) return;
 
-        log('\n--- Automatikus visszakövetés indítása ---');
+        log('\n--- Starting batch follow back process ---');
         for (const user of notFollowedByUsArray) {
-            log(`Bekövetés: ${user}...`);
+            log(`Following back: ${user}...`);
             try {
                 await fetch(`https://api.github.com/user/following/${user}`, {
                     method: 'PUT',
@@ -449,11 +469,11 @@
                 });
                 log(`✅ OK: ${user}`);
             } catch (err) {
-                log(`❌ HIBA: ${user}`);
+                log(`❌ ERROR: ${user}`);
             }
             await new Promise(r => setTimeout(r, 800));
         }
-        log('--- Automatikus visszakövetés kész! ---');
+        log('--- Batch follow back process finished! ---');
         fetchData();
     }
 </script>
